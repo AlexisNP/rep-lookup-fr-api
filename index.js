@@ -8,7 +8,7 @@ const GeoJsonGeometriesLookup = require("geojson-geometries-lookup");
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use('/', (req, res) => {
+app.use('/rep', (req, res) => {
     const lat = parseFloat(req.query.lat);
     const lon = parseFloat(req.query.lon);
 
@@ -24,9 +24,9 @@ app.use('/', (req, res) => {
         coordinates: [lon, lat],
     };
 
-    res.json({
-        "code": gl.getContainers(pos).features[0]?.properties["REF"]
-    })
+    const code = gl.getContainers(pos).features[0]?.properties["REF"]
+
+    res.json({});
 })
 
 app.listen(PORT, () => console.log(`Server listening on port: ${PORT}`));
