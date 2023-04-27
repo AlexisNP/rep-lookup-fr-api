@@ -28,6 +28,13 @@ app.use('/rep', async (req, res) => {
 
     const code = gl.getContainers(pos).features[0]?.properties["REF"]
 
+    if (!code) {
+        res.json({
+            "message": "The requested data couldn't be found. Maybe it was moved or the data isn't generated properly."
+        }).status(404).end();
+        return
+    }
+
     const repFile = fs.readFileSync(path.join(__dirname, `public/reps/${lookupTable[code]}.json`), 'utf-8');
 
     res.end(repFile);
