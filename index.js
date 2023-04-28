@@ -1,50 +1,79 @@
+const fs = require('fs')
+const path = require('path')
 const express = require('express')
 const cors = require('cors')
 const json = require('big-json')
 
+const GeoJsonGeometriesLookup = require("geojson-geometries-lookup")
+const lookupTable = require('./rep-lookup')
+
 const app = express()
-app.use(cors())
 
 const PORT = 3000
 
-const fs = require('fs')
-const path = require('path')
-const GeoJsonGeometriesLookup = require("geojson-geometries-lookup")
 
-const lookupTable = require('./rep-lookup')
+
+app.use(cors())
 
 app.use(express.static(path.join(__dirname, 'public')))
 
+/**
+ * MAIN ROUTE
+ * Query params :
+ *      latitude
+ *      longitude
+ */
 app.use('/rep', async (req, res) => {
-    const lat = parseFloat(req.query.lat)
-    const lon = parseFloat(req.query.lon)
+    let { lat, lon } = req.query
 
-    if (!lat || !lon) return
+    const missingRequiredQuery = !lat || !lon
 
-    const closestCity = await fetch(
+    // If the query doesn't contain the required params...
+    if (missingRequiredQuery) {
+        res.json({
+            "message": "The request is missing geolocation data. You must use 'lat' and 'lon' in your query."
+        }).status(401).end();
+        return
+    }
+
+    lat = parseFloat(lat)
+    lon = parseFloat(lon)
+
+    // Gets closest city from gov api to establish region data
+    const closestCity = await (await fetch(
         `https://geo.api.gouv.fr/communes?lat=${lat}&lon=${lon}`
-    );
-    const body = await closestCity.json();
-    let codeDepartement = String(body[0]?.codeDepartement)
+    )).json();
+    let codeDepartement = String(closestCity[0]?.codeDepartement)
 
-    if (!codeDepartement || codeDepartement === "") return
+    // If somehow, the gov api can't find the nearest city...
+    if (!codeDepartement || codeDepartement === "") {
+        res.json({
+            "message": "The geolocation wasn't able to pinpoint the region the coords were in."
+        }).status(400).end();
+        return
+    }
 
+    // Changes dep code to format of filenames on server, ie "075"
     codeDepartement = codeDepartement.padStart(3, "0");
 
+    // Gets the associated features with a read and parse stream
     const pathToFeatures = path.join(__dirname, `public/cirs/${codeDepartement}.json`)
     const readStream = fs.createReadStream(pathToFeatures)
     const parseStream = json.createParseStream()
 
     parseStream.on('data', (pojo) => {
+        // Searches through all the geometries from the departement file data...
         gl = new GeoJsonGeometriesLookup(pojo)
-    
+
         const pos = {
             type: "Point",
             coordinates: [lon, lat],
         };
-    
+
+        // Gets associated code for the country
         const code = gl.getContainers(pos).features[0]?.properties["REF"]
     
+        // If no code is found, send a 404
         if (!code) {
             res.json({
                 "message": "The requested data couldn't be found. Maybe it was moved or the data isn't generated properly."
@@ -52,11 +81,10 @@ app.use('/rep', async (req, res) => {
             return
         }
     
+        // If a code is found, send the associated file containing the representant data
         const repFile = fs.readFileSync(path.join(__dirname, `public/reps/${lookupTable[code]}.json`), 'utf-8')
-    
         res.end(repFile)
     })
-
     readStream.pipe(parseStream);
 })
 
