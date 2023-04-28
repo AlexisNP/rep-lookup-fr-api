@@ -1,5 +1,6 @@
 const express = require('express')
 const cors = require('cors')
+const json = require('big-json')
 
 const app = express()
 app.use(cors())
@@ -30,28 +31,33 @@ app.use('/rep', async (req, res) => {
 
     codeDepartement = codeDepartement.padStart(3, "0");
 
-    const f = fs.readFileSync(path.join(__dirname, `public/cirs/${codeDepartement}.json`), 'utf-8')
-    const data = JSON.parse(f)
+    const pathToFeatures = path.join(__dirname, `public/cirs/${codeDepartement}.json`)
+    const readStream = fs.createReadStream(pathToFeatures)
+    const parseStream = json.createParseStream()
 
-    gl = new GeoJsonGeometriesLookup(data)
+    parseStream.on('data', (pojo) => {
+        gl = new GeoJsonGeometriesLookup(pojo)
+    
+        const pos = {
+            type: "Point",
+            coordinates: [lon, lat],
+        };
+    
+        const code = gl.getContainers(pos).features[0]?.properties["REF"]
+    
+        if (!code) {
+            res.json({
+                "message": "The requested data couldn't be found. Maybe it was moved or the data isn't generated properly."
+            }).status(404).end();
+            return
+        }
+    
+        const repFile = fs.readFileSync(path.join(__dirname, `public/reps/${lookupTable[code]}.json`), 'utf-8')
+    
+        res.end(repFile)
+    })
 
-    const pos = {
-        type: "Point",
-        coordinates: [lon, lat],
-    };
-
-    const code = gl.getContainers(pos).features[0]?.properties["REF"]
-
-    if (!code) {
-        res.json({
-            "message": "The requested data couldn't be found. Maybe it was moved or the data isn't generated properly."
-        }).status(404).end();
-        return
-    }
-
-    const repFile = fs.readFileSync(path.join(__dirname, `public/reps/${lookupTable[code]}.json`), 'utf-8')
-
-    res.end(repFile)
+    readStream.pipe(parseStream);
 })
 
 app.listen(PORT, () => console.log(`Server listening on port: ${PORT}`));
