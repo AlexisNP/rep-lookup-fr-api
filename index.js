@@ -3,6 +3,7 @@ const { join } = require('path')
 const express = require('express')
 const cors = require('cors')
 const morgan = require('morgan')
+const helmet = require("helmet");
 const json = require('big-json')
 
 const GeoJsonGeometriesLookup = require("geojson-geometries-lookup")
@@ -15,6 +16,7 @@ const port = 3000
 // Add modules to express app
 app.use(cors())
 app.use(morgan('common'))
+app.use(helmet())
 
 // Static files
 app.use(express.static(join(__dirname, 'public')))
