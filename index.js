@@ -1,7 +1,8 @@
-const fs = require('fs')
-const path = require('path')
+const { createReadStream, readFileSync } = require('fs')
+const { join } = require('path')
 const express = require('express')
 const cors = require('cors')
+const morgan = require('morgan')
 const json = require('big-json')
 
 const GeoJsonGeometriesLookup = require("geojson-geometries-lookup")
@@ -9,13 +10,14 @@ const lookupTable = require('./rep-lookup')
 
 const app = express()
 
-const PORT = 3000
+const port = 3000
 
-
-
+// Add modules to express app
 app.use(cors())
+app.use(morgan('common'))
 
-app.use(express.static(path.join(__dirname, 'public')))
+// Static files
+app.use(express.static(join(__dirname, 'public')))
 
 /**
  * MAIN ROUTE
@@ -26,13 +28,11 @@ app.use(express.static(path.join(__dirname, 'public')))
 app.use('/rep', async (req, res) => {
     let { lat, lon } = req.query
 
-    const missingRequiredQuery = !lat || !lon
-
     // If the query doesn't contain the required params...
-    if (missingRequiredQuery) {
-        res.json({
+    if (!lat || !lon) {
+        res.status(401).json({
             "message": "The request is missing geolocation data. You must use 'lat' and 'lon' in your query."
-        }).status(401).end();
+        });
         return
     }
 
@@ -43,13 +43,13 @@ app.use('/rep', async (req, res) => {
     const closestCity = await (await fetch(
         `https://geo.api.gouv.fr/communes?lat=${lat}&lon=${lon}`
     )).json();
-    let codeDepartement = String(closestCity[0]?.codeDepartement)
+    let codeDepartement = String(closestCity[0].codeDepartement)
 
     // If somehow, the gov api can't find the nearest city...
     if (!codeDepartement || codeDepartement === "") {
-        res.json({
+        res.status(400).json({
             "message": "The geolocation wasn't able to pinpoint the region the coords were in."
-        }).status(400).end();
+        });
         return
     }
 
@@ -57,8 +57,8 @@ app.use('/rep', async (req, res) => {
     codeDepartement = codeDepartement.padStart(3, "0");
 
     // Gets the associated features with a read and parse stream
-    const pathToFeatures = path.join(__dirname, `public/cirs/${codeDepartement}.json`)
-    const readStream = fs.createReadStream(pathToFeatures)
+    const pathToFeatures = join(__dirname, `public/cirs/${codeDepartement}.json`)
+    const readStream = createReadStream(pathToFeatures)
     const parseStream = json.createParseStream()
 
     parseStream.on('data', (pojo) => {
@@ -75,25 +75,25 @@ app.use('/rep', async (req, res) => {
     
         // If no code is found, send a 404
         if (!code) {
-            res.json({
+            res.status(404).json({
                 "message": "The requested data couldn't be found. Maybe it was moved or the data isn't generated properly."
-            }).status(404).end();
+            });
             return
         }
     
         // If a code is found, send the associated file containing the representant data
-        const repFile = fs.readFileSync(path.join(__dirname, `public/reps/${lookupTable[code]}.json`), 'utf-8')
+        const repFile = readFileSync(join(__dirname, `public/reps/${lookupTable[code]}.json`), 'utf-8')
         res.end(repFile)
     })
     readStream.pipe(parseStream);
 })
 
-app.listen(PORT, () => console.log(`Server listening on port: ${PORT}`));
+app.listen(port, () => console.log(`Server listening on port: ${port}`));
 
 /**
 * CUT DOWN CIRCO JSON
 */
-// const f = fs.readFileSync(path.join(__dirname, 'public/circonscriptions-legislatives.json'), 'utf-8')
+// const f = fs.readFileSync(join(__dirname, 'public/circonscriptions-legislatives.json'), 'utf-8')
 // const data = JSON.parse(f)
 
 // const features = Object.values(data.features)
@@ -106,7 +106,7 @@ app.listen(PORT, () => console.log(`Server listening on port: ${PORT}`));
 //         "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
 //         "features": value
 //     }
-//     fs.writeFileSync(path.join(__dirname, `public/cirs/${key}.json`), JSON.stringify(output))
+//     fs.writeFileSync(join(__dirname, `public/cirs/${key}.json`), JSON.stringify(output))
 // }
 
 // function groupBy(list, keyGetter) {
