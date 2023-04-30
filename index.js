@@ -45,7 +45,7 @@ app.use('/rep', async (req, res) => {
     const closestCity = await (await fetch(
         `https://geo.api.gouv.fr/communes?lat=${lat}&lon=${lon}`
     )).json();
-    let codeDepartement = String(closestCity[0].codeDepartement)
+    let codeDepartement = closestCity[0]?.codeDepartement
 
     // If somehow, the gov api can't find the nearest city...
     if (!codeDepartement || codeDepartement === "") {
@@ -56,7 +56,7 @@ app.use('/rep', async (req, res) => {
     }
 
     // Changes dep code to format of filenames on server, ie "075"
-    codeDepartement = codeDepartement.padStart(3, "0");
+    codeDepartement = String(codeDepartement).padStart(3, "0");
 
     // Gets the associated features with a read and parse stream
     const pathToFeatures = join(__dirname, `public/cirs/${codeDepartement}.json`)
