@@ -33,7 +33,7 @@ app.use('/rep', async (req, res) => {
     // If the query doesn't contain the required params...
     if (!lat || !lon) {
         res.status(401).json({
-            "message": "The request is missing geolocation data. You must use 'lat' and 'lon' in your query."
+            "message": "La requête doit contenir une latitude et une longitude pour récupérer les données de votre député."
         });
         return
     }
@@ -50,7 +50,7 @@ app.use('/rep', async (req, res) => {
     // If somehow, the gov api can't find the nearest city...
     if (!codeDepartement || codeDepartement === "") {
         res.status(400).json({
-            "message": "The geolocation wasn't able to pinpoint the region the coords were in."
+            "message": "Les coordonnées de géolocalisation ne sont pas correctes ; vérifiez votre navigateur ou contactez l'administrateur du site si vous pensez qu'il s'agit d'une erreur."
         });
         return
     }
@@ -78,7 +78,7 @@ app.use('/rep', async (req, res) => {
         // If no code is found, send a 404
         if (!code) {
             res.status(404).json({
-                "message": "The requested data couldn't be found. Maybe it was moved or the data isn't generated properly."
+                "message": "Impossible de trouver la circonscription demandée. Veuillez contacter l'administrateur du site si vous pensez qu'il s'agit d'une erreur."
             });
             return
         }
