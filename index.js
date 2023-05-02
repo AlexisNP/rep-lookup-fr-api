@@ -49,7 +49,7 @@ app.use('/rep', async (req, res) => {
     const closestCity = await (await fetch(
         `https://geo.api.gouv.fr/communes?lat=${lat}&lon=${lon}`
     )).json();
-    codeDepartement = closestCity[0]?.codeDepartement
+    let codeDepartement = closestCity[0]?.codeDepartement
 
     // Usually means we're out of France
     if (!codeDepartement) {
@@ -65,6 +65,26 @@ app.use('/rep', async (req, res) => {
                 const countryName = gaData.results.find((addr) => addr.types.find((type) => type === "country"))?.formatted_address
 
                 // From country name, get the associated rep
+                const foreignLookupTable = require('./rep-lookup-foreign')
+
+                let circoForeign
+
+                // foreignLookupTable.forEach((value, index) => {
+                //     if (value.includes(countryName)) {
+                //         circoForeign = index
+                //     } 
+                // });
+
+                for (const [key, value] of Object.entries(foreignLookupTable)) {
+                    if (value.includes(countryName)) {
+                        circoForeign = key
+                    }
+                }
+
+                // If a code is found, send the associated file containing the representant data
+                const repFile = readFileSync(join(__dirname, `public/reps/${lookupTable[circoForeign]}.json`), 'utf-8')
+                res.end(repFile)
+                return
             } else {
                 // If not in a valid country, ends req
                 res.status(400).json({
@@ -73,13 +93,12 @@ app.use('/rep', async (req, res) => {
                 return
             }
         } catch (err) {
+            console.log(err)
             res.status(500).json({
                 "message": "Une erreur est survenue à cause de l'API Google Maps. Nous vous recommandez de réessayer plus tard."
             });
             return
         }
-
-
     }
 
     // Changes dep code to format of filenames on server, ie "075"
