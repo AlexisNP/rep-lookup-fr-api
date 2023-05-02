@@ -1,10 +1,14 @@
 const { createReadStream, readFileSync } = require('fs')
 const { join } = require('path')
+require('dotenv').config()
+
 const express = require('express')
 const cors = require('cors')
 const morgan = require('morgan')
 const helmet = require("helmet");
 const json = require('big-json')
+
+const { Client } = require("@googlemaps/google-maps-services-js");
 
 const GeoJsonGeometriesLookup = require("geojson-geometries-lookup")
 const lookupTable = require('./rep-lookup')
@@ -45,14 +49,37 @@ app.use('/rep', async (req, res) => {
     const closestCity = await (await fetch(
         `https://geo.api.gouv.fr/communes?lat=${lat}&lon=${lon}`
     )).json();
-    let codeDepartement = closestCity[0]?.codeDepartement
+    codeDepartement = closestCity[0]?.codeDepartement
 
-    // If somehow, the gov api can't find the nearest city...
-    if (!codeDepartement || codeDepartement === "") {
-        res.status(400).json({
-            "message": "Les coordonnées de géolocalisation ne sont pas correctes ; vérifiez votre navigateur ou contactez l'administrateur du site si vous pensez qu'il s'agit d'une erreur."
-        });
-        return
+    // Usually means we're out of France
+    if (!codeDepartement) {
+        
+        // ...Check if in another country
+        const gaClient = new Client({})
+
+        try {
+            const gaRes = await gaClient.reverseGeocode({ params: { latlng: `${lat},${lon}`, key: process.env.GOOGLE_API_KEY }})
+            const gaData = await gaRes.data
+
+            if (gaData.results) {
+                const countryName = gaData.results.find((addr) => addr.types.find((type) => type === "country"))?.formatted_address
+
+                // From country name, get the associated rep
+            } else {
+                // If not in a valid country, ends req
+                res.status(400).json({
+                    "message": "Les coordonnées de géolocalisation ne sont pas correctes ; vérifiez votre navigateur ou contactez l'administrateur du site si vous pensez qu'il s'agit d'une erreur."
+                });
+                return
+            }
+        } catch (err) {
+            res.status(500).json({
+                "message": "Une erreur est survenue à cause de l'API Google Maps. Nous vous recommandez de réessayer plus tard."
+            });
+            return
+        }
+
+
     }
 
     // Changes dep code to format of filenames on server, ie "075"
