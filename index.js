@@ -81,6 +81,10 @@ app.use('/rep', async (req, res) => {
                     }
                 }
 
+                if (!circoForeign) {
+                    throw new Error('Error trying to parse this country : ' + countryName)
+                }
+
                 // If a code is found, send the associated file containing the representant data
                 const repFile = readFileSync(join(__dirname, `public/reps/${lookupTable[circoForeign]}.json`), 'utf-8')
                 res.end(repFile)
