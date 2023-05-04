@@ -84,7 +84,7 @@ module.exports = {
         "Slovakia",
     ],
     "099-08": [
-        "Italia",
+        "Italy",
         "Malta",
         "San Marino",
         "Holy See",
@@ -147,7 +147,7 @@ module.exports = {
         "São Tomé and Príncipe",
         "Angola",
         "Congolese",
-        "Democratic Republic of Congo",
+        "Democratic Republic of the Congo",
         "Iraq",
         "Jordan",
         "Lebanon",
