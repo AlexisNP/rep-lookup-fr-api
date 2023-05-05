@@ -17,6 +17,10 @@ const app = express()
 
 const port = 3000
 
+/**
+ * BASE DATA : https://data.assemblee-nationale.fr/acteurs/deputes-en-exercice
+ */
+
 // Add modules to express app
 app.use(cors())
 app.use(morgan('common'))
@@ -159,6 +163,38 @@ app.use('/rep', async (req, res) => {
         res.end(repFile)
     })
     readStream.pipe(parseStream);
+})
+
+/**
+ * POLITICAL PARTY ROUTE
+ * Query params :
+ *      id?: faster searches
+ */
+app.use('/org', async (req, res) => {
+    const { id } = req.query
+
+    const repIdRegex = new RegExp(/(PO)([0-9]+)/gi)
+    const parsedId = String(id).match(repIdRegex)
+
+    // Fail first if regex fails
+    if (!parsedId) {
+        res.status(401).json({
+            "message": "Le format de l'ID ne correspond pas au format attendu (une suite de chiffres préfixée de 'PO')"
+        });
+        return
+    }
+
+    // If regex okay, fetch file from server
+    try {
+        const repFile = readFileSync(join(__dirname, `public/organe/${parsedId}.json`), 'utf-8')
+        res.end(repFile)
+        return
+    } catch (err) {
+        res.status(404).json({
+            "message": "Aucun organe ou groupe politique n'a été trouvé avec cet identifiant"
+        });
+        return
+    }
 })
 
 app.listen(port, () => console.log(`Server listening on port: ${port}`));
