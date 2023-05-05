@@ -30,9 +30,36 @@ app.use(express.static(join(__dirname, 'public')))
  * Query params :
  *      latitude
  *      longitude
+ *      id?: faster searches
  */
 app.use('/rep', async (req, res) => {
-    let { lat, lon } = req.query
+    let { lat, lon, id } = req.query
+
+    // First tries to get the ID if in request
+    if (id) {
+        const repIdRegex = new RegExp(/(PA)([0-9]+)/gi)
+        const parsedId = String(id).match(repIdRegex)
+
+        // Fail first if regex fails
+        if (!parsedId) {
+            res.status(401).json({
+                "message": "Le format de l'ID ne correspond pas au format attendu (une suite de chiffres préfixée de 'PA')"
+            });
+            return
+        }
+
+        // If regex okay, fetch file from server
+        try {
+            const repFile = readFileSync(join(__dirname, `public/reps/${parsedId}.json`), 'utf-8')
+            res.end(repFile)
+            return
+        } catch (err) {
+            res.status(404).json({
+                "message": "Aucun député n'a été trouvé avec cet identifiant"
+            });
+            return
+        }
+    }
 
     // If the query doesn't contain the required params...
     if (!lat || !lon) {
@@ -68,12 +95,6 @@ app.use('/rep', async (req, res) => {
                 const foreignLookupTable = require('./rep-lookup-foreign')
 
                 let circoForeign
-
-                // foreignLookupTable.forEach((value, index) => {
-                //     if (value.includes(countryName)) {
-                //         circoForeign = index
-                //     } 
-                // });
 
                 for (const [key, value] of Object.entries(foreignLookupTable)) {
                     if (value.includes(countryName)) {
